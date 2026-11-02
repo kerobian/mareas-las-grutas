@@ -73,6 +73,21 @@
       </article>
     </section>
 
+    <section class="panel marine-panel">
+      <div class="section-top"><div><p class="eyebrow">PRONÓSTICO MARINO</p><h2>Estado del oleaje</h2><p class="section-description">Estimación del modelo marino para el horario seleccionado.</p></div><span class="marine-symbol">🌊</span></div>
+      <div class="marine-status-row"><strong id="marine-condition">Consultando oleaje…</strong><span id="marine-time" class="marine-time">—</span></div>
+      <div class="marine-details">
+        <div class="marine-detail"><small>ALTURA DE OLA</small><strong id="wave-height">—</strong></div>
+        <div class="marine-detail"><small>PERÍODO</small><strong id="wave-period">—</strong></div>
+        <div class="marine-detail"><small>DIRECCIÓN</small><strong id="wave-direction">—</strong></div>
+        <div class="marine-detail"><small>TEMP. DEL AGUA</small><strong id="sea-temp">—</strong></div>
+        <div class="marine-detail"><small>OLEAJE DE FONDO</small><strong id="swell-height">—</strong></div>
+        <div class="marine-detail"><small>CORRIENTE MODELADA</small><strong id="current-speed">—</strong></div>
+      </div>
+      <p class="marine-foot" id="marine-foot">Fuente: Open-Meteo Marine API.</p>
+      <p class="marine-caution">Orientativo: el pronóstico no mide las condiciones exactas de cada bajada ni detecta todas las corrientes de retorno. No indica si es seguro bañarse. Respetá siempre las banderas y las indicaciones de guardavidas.</p>
+    </section>
+
     <section class="event-grid">
       <article class="event-card high-card"><div class="event-label"><span class="event-dot"></span> PRÓXIMA PLEAMAR</div><div class="event-time" id="high-time">—</div><div class="event-detail" id="high-detail">Esperando datos</div><div class="event-count" id="high-count"></div></article>
       <article class="event-card low-card"><div class="event-label"><span class="event-dot"></span> PRÓXIMA BAJAMAR</div><div class="event-time" id="low-time">—</div><div class="event-detail" id="low-detail">Esperando datos</div><div class="event-count" id="low-count"></div></article>
