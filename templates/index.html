@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071d33">
+  <title>Mareas Las Grutas | Estado del mar y pronóstico</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark">≈</span>
+      <span><strong>MAREAS</strong><small>LAS GRUTAS · RÍO NEGRO</small></span>
+    </a>
+    <div class="top-location"><span class="live-dot"></span> Costa atlántica · Argentina</div>
+  </header>
+
+  <main class="container">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">INFORMACIÓN COSTERA</p>
+        <h1>El mar, <em>en tiempo y forma.</em></h1>
+        <p class="intro-copy">Consultá la altura estimada de la marea y las condiciones meteorológicas para Las Grutas.</p>
+      </div>
+      <div class="date-chip"><span class="sun-icon">☼</span><span id="today-label">Consultando fecha…</span></div>
+    </section>
+
+    <section class="search-panel panel">
+      <div class="search-heading"><div><span class="eyebrow">CONSULTA PERSONALIZADA</span><h2>Elegí fecha y horario</h2></div><span class="panel-icon">⌕</span></div>
+      <div class="form-row">
+        <label>FECHA<input type="date" id="date-input"></label>
+        <label>HORA<input type="time" id="time-input"></label>
+        <button class="btn btn-primary" id="consult-btn">Consultar <span>→</span></button>
+        <button class="btn btn-ghost" id="now-btn">Ahora</button>
+      </div>
+      <div class="status-line"><span class="status-dot"></span><span id="status">Preparando consulta…</span><button id="refresh-btn" class="text-button">Actualizar datos ↻</button></div>
+    </section>
+
+    <div id="alert" class="alert hidden"></div>
+
+    <section class="dashboard-grid">
+      <article class="panel tide-panel">
+        <div class="section-top"><div><p class="eyebrow">ESTADO DE LA MAREA</p><h2>Altura estimada</h2></div><span class="wave-symbol">≈</span></div>
+        <div class="height-line"><strong id="height-value">—</strong><span>metros</span></div>
+        <div class="trend" id="trend-value">Esperando datos</div>
+        <div class="level-pill" id="level-pill">SIN DATOS</div>
+        <div class="level-track"><div class="level-zones"><i></i><i></i><i></i></div><span id="level-marker"></span></div>
+        <div class="level-labels"><span>Baja</span><span>Intermedia</span><span>Alta</span></div>
+        <p class="level-note" id="level-note">La posición dentro del ciclo aparecerá aquí.</p>
+        <div class="subtle-rule"></div>
+        <div class="mini-info"><span>Hora consultada</span><strong id="target-label">—</strong></div>
+      </article>
+
+      <article class="panel weather-panel">
+        <div class="section-top"><div><p class="eyebrow">CONDICIONES PREVISTAS</p><h2>Clima y viento</h2></div><span class="weather-symbol">☀</span></div>
+        <div class="weather-main">
+          <div><span class="weather-temp" id="temp-value">—</span><span class="weather-unit">°C</span></div>
+          <div class="weather-description" id="sky-value">Cargando pronóstico</div>
+        </div>
+        <div class="weather-details">
+          <div class="weather-detail"><span class="detail-icon">↗</span><div><small>VIENTO</small><strong id="wind-value">—</strong><small id="wind-direction">—</small></div></div>
+          <div class="weather-detail"><span class="detail-icon">≋</span><div><small>RÁFAGAS</small><strong id="gust-value">—</strong><small>km/h</small></div></div>
+          <div class="weather-detail"><span class="detail-icon">◌</span><div><small>SENSACIÓN</small><strong id="feels-value">—</strong><small>temperatura</small></div></div>
+          <div class="weather-detail"><span class="detail-icon">☁</span><div><small>NUBOSIDAD</small><strong id="cloud-value">—</strong><small>cobertura</small></div></div>
+        </div>
+        <p class="forecast-foot" id="forecast-foot">Pronóstico horario de Open-Meteo.</p>
+      </article>
+    </section>
+
+    <section class="event-grid">
+      <article class="event-card high-card"><div class="event-label"><span class="event-dot"></span> PRÓXIMA PLEAMAR</div><div class="event-time" id="high-time">—</div><div class="event-detail" id="high-detail">Esperando datos</div><div class="event-count" id="high-count"></div></article>
+      <article class="event-card low-card"><div class="event-label"><span class="event-dot"></span> PRÓXIMA BAJAMAR</div><div class="event-time" id="low-time">—</div><div class="event-detail" id="low-detail">Esperando datos</div><div class="event-count" id="low-count"></div></article>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="section-top chart-heading"><div><p class="eyebrow">COMPORTAMIENTO DEL MAR</p><h2>Evolución de la marea</h2><p class="section-description">Curva estimada alrededor del horario seleccionado.</p></div><span class="chart-legend"><i></i> Altura estimada</span></div>
+      <div class="chart-wrap"><canvas id="tide-chart"></canvas></div>
+    </section>
+
+    <section class="disclaimer panel">
+      <div class="disclaimer-icon">i</div><div><strong>Sobre estos datos</strong><p>La altura se estima interpolando entre pleamares y bajamares publicadas para el Puerto San Antonio Este, utilizado como referencia. No es una medición exacta en cada punto de Las Grutas. El viento, el oleaje y la presión atmosférica pueden modificar el nivel real. El clima y el viento son pronósticos de modelo para la zona.</p><small id="source-label">Fuente de mareas: —</small></div>
+    </section>
+    <footer><span>MAREAS LAS GRUTAS</span><span>Datos orientativos · Consultá siempre las condiciones locales</span></footer>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
