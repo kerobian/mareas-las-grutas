@@ -18,6 +18,7 @@ SOURCE_URLS = [
     "https://rionegrino.com/mareas/las-grutas/",
 ]
 WIND_URL = "https://api.open-meteo.com/v1/forecast"
+MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 LAS_GRUTAS_LAT, LAS_GRUTAS_LON = -40.81, -65.09
 WIND_TZ = "America/Argentina/Buenos_Aires"
 LOW_LIMIT, HIGH_LIMIT = 0.25, 0.75
@@ -46,7 +47,7 @@ COMPASS8 = [
     ("N", "Norte"), ("NE", "Noreste"), ("E", "Este"), ("SE", "Sudeste"),
     ("S", "Sur"), ("SO", "Sudoeste"), ("O", "Oeste"), ("NO", "Noroeste"),
 ]
-cache = {"at": None, "events": None, "source": None, "forecast": None, "forecast_error": None}
+cache = {"at": None, "events": None, "source": None, "forecast": None, "forecast_error": None, "marine": None, "marine_error": None}
 cache_lock = Lock()
 CACHE_SECONDS = 15 * 60
 
@@ -248,6 +249,57 @@ def fetch_forecast():
     return rows
 
 
+def fetch_marine_forecast():
+    """Pronóstico de oleaje. Es un modelo regional y no una medición de playa."""
+    params = {
+        "latitude": LAS_GRUTAS_LAT,
+        "longitude": LAS_GRUTAS_LON,
+        "hourly": "wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction",
+        "timezone": WIND_TZ,
+        "past_days": 1,
+        "forecast_days": 7,
+        "cell_selection": "sea",
+        "length_unit": "metric",
+    }
+    response = requests.get(MARINE_URL, params=params, timeout=20)
+    response.raise_for_status()
+    hourly = response.json()["hourly"]
+    rows = []
+    for i, stamp in enumerate(hourly.get("time", [])):
+        try:
+            def val(key):
+                values = hourly.get(key) or []
+                return values[i] if i < len(values) else None
+            rows.append({
+                "datetime": datetime.fromisoformat(stamp),
+                "wave_height": val("wave_height"),
+                "wave_direction": val("wave_direction"),
+                "wave_period": val("wave_period"),
+                "swell_height": val("swell_wave_height"),
+                "swell_direction": val("swell_wave_direction"),
+                "swell_period": val("swell_wave_period"),
+                "sea_temp": val("sea_surface_temperature"),
+                "current_speed": val("ocean_current_velocity"),
+                "current_direction": val("ocean_current_direction"),
+            })
+        except (TypeError, ValueError):
+            continue
+    if not rows:
+        raise RuntimeError("La API marina no devolvió datos horarios.")
+    return rows
+
+
+def classify_surf(height):
+    """Describe la altura modelada del oleaje; no determina seguridad para bañarse."""
+    if height is None:
+        return "Sin datos", "unknown"
+    if height < 0.5:
+        return "Oleaje bajo", "low"
+    if height < 1.25:
+        return "Oleaje moderado", "medium"
+    return "Oleaje elevado", "high"
+
+
 def get_data():
     now = datetime.now()
     with cache_lock:
@@ -260,8 +312,14 @@ def get_data():
         forecast_error = None
     except Exception as exc:
         forecast, forecast_error = [], str(exc)
+    try:
+        marine = fetch_marine_forecast()
+        marine_error = None
+    except Exception as exc:
+        marine, marine_error = [], str(exc)
     with cache_lock:
-        cache.update(at=now, events=events, source=source, forecast=forecast, forecast_error=forecast_error)
+        cache.update(at=now, events=events, source=source, forecast=forecast, forecast_error=forecast_error,
+                     marine=marine, marine_error=marine_error)
         return cache
 
 
@@ -323,6 +381,24 @@ def api_data():
                     "cloud": round(closest["cloud"]) if closest["cloud"] is not None else None,
                     "forecast_time": closest["datetime"].strftime("%H:%M"),
                 }
+        marine_reading = None
+        if data.get("marine"):
+            closest_marine = min(data["marine"], key=lambda x: abs((x["datetime"] - target).total_seconds()))
+            if abs((closest_marine["datetime"] - target).total_seconds()) <= WIND_MAX_GAP_MIN * 60:
+                wave_h = closest_marine["wave_height"]
+                surf_label, surf_level = classify_surf(wave_h)
+                marine_reading = {
+                    "wave_height": round(float(wave_h), 2) if wave_h is not None else None,
+                    "wave_direction": compass_label(float(closest_marine["wave_direction"])) if closest_marine["wave_direction"] is not None else None,
+                    "wave_period": round(float(closest_marine["wave_period"]), 1) if closest_marine["wave_period"] is not None else None,
+                    "swell_height": round(float(closest_marine["swell_height"]), 2) if closest_marine["swell_height"] is not None else None,
+                    "swell_period": round(float(closest_marine["swell_period"]), 1) if closest_marine["swell_period"] is not None else None,
+                    "sea_temp": round(float(closest_marine["sea_temp"]), 1) if closest_marine["sea_temp"] is not None else None,
+                    "current_speed": round(float(closest_marine["current_speed"]), 1) if closest_marine["current_speed"] is not None else None,
+                    "current_direction": compass_label(float(closest_marine["current_direction"])) if closest_marine["current_direction"] is not None else None,
+                    "condition": surf_label, "level": surf_level,
+                    "forecast_time": closest_marine["datetime"].strftime("%H:%M"),
+                }
         start, end = target - timedelta(hours=GRAPH_HOURS), target + timedelta(hours=GRAPH_HOURS)
         graph = []
         cursor = start
@@ -340,7 +416,8 @@ def api_data():
             "level": est["level"], "percentage": round(est["pct"] * 100) if est["pct"] is not None else None,
             "warning": est["warning"], "next_high": event_json(est["next_high"], target),
             "next_low": event_json(est["next_low"], target), "forecast": forecast_reading,
-            "forecast_error": data["forecast_error"], "graph": graph, "events": nearby_events,
+            "forecast_error": data["forecast_error"], "marine": marine_reading,
+            "marine_error": data.get("marine_error"), "graph": graph, "events": nearby_events,
             "source": urlparse(data["source"]).netloc, "updated": data["at"].strftime("%H:%M"),
             "available_from": events[0]["datetime"].strftime("%d/%m/%Y"),
             "available_to": events[-1]["datetime"].strftime("%d/%m/%Y"),
